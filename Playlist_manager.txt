@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doubly Linked List Playlist Manager</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#1084D0',
+                        'dark-gray': '#1F2937',
+                        'light-gray': '#E5E7EB',
+                    },
+                },
+            },
+            variants: {
+                extend: {
+                    backgroundColor: ['checked'],
+                    borderColor: ['checked'],
+                }
+            }
+        }
+    </script>
+    <style>
+        /* FIX: Replaced unencoded '&' with '&amp;' in the URL to prevent HTML validation errors */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light background */
+        }
+        .scroll-container {
+            max-height: 60vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        /* Custom styles for a modern playlist card */
+        .playlist-card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .song-item {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border-left: 5px solid transparent;
+        }
+        .current-song {
+            background-color: #e0f2fe; /* light-blue-100 */
+            border-left-color: #1084D0; /* primary-blue */
+            font-weight: 600;
+        }
+        .control-button {
+            transition: transform 0.1s;
+        }
+        .control-button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto">
+        
+        <!-- Header and User Info -->
+        <header class="mb-8 p-4 bg-white rounded-xl shadow-lg">
+            <h1 class="text-3xl font-extrabold text-primary-blue mb-1">
+                🎶 Playlist Manager
+            </h1>
+            <p class="text-gray-600 mb-4">
+                Doubly Linked List Concept using Local Simulation
+            </p>
+            <div class="text-xs text-gray-500 truncate">
+                <span class="font-semibold">User ID:</span> <span id="user-id-display">Initializing...</span>
+            </div>
+            <div class="text-xs text-gray-500">
+                <span class="font-semibold">Status:</span> <span id="status-message" class="text-yellow-600">Connecting to Firebase...</span>
+            </div>
+        </header>
+
+        <!-- Song Input Section -->
+        <section class="mb-8 p-6 bg-white rounded-xl playlist-card">
+            <h2 class="text-xl font-bold mb-4 text-dark-gray">Add New Song</h2>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <input type="text" id="song-title-input" placeholder="Song Title (e.g., Stairway to Heaven)" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue" required>
+                <input type="text" id="artist-input" placeholder="Artist Name (e.g., Led Zeppelin)" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue" required>
+                <!-- FIX: Added type="button" to prevent implicit submit behavior -->
+                <button id="add-song-btn" type="button" class="control-button bg-primary-blue text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out">
+                    <span class="flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Add Song
+                    </span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Main Playlist and Controls -->
+        <div class="flex flex-col lg:flex-row gap-8">
+            
+            <!-- Playlist Display -->
+            <section class="lg:w-2/3 p-6 bg-white rounded-xl playlist-card">
+                <h2 class="text-xl font-bold mb-4 text-dark-gray">Current Playlist</h2>
+                
+                <!-- Playlist List -->
+                <div id="playlist-list" class="scroll-container border border-gray-200 rounded-lg p-2 divide-y divide-gray-100">
+                    <p class="text-gray-500 p-4 text-center">No songs yet. Add one above!</p>
+                </div>
+                
+                <!-- Now Playing Indicator -->
+                <div class="mt-4 p-4 bg-gray-50 rounded-lg border-t border-gray-200">
+                    <p class="text-sm font-semibold text-gray-700">Now Playing:</p>
+                    <p id="now-playing-display" class="text-lg font-extrabold text-primary-blue truncate">-- Nothing Selected --</p>
+                </div>
+            </section>
+
+            <!-- Controls -->
+            <section class="lg:w-1/3 p-6 bg-white rounded-xl playlist-card flex flex-col justify-between">
+                <div>
+                    <h2 class="text-xl font-bold mb-4 text-dark-gray">Controls</h2>
+                    <div class="flex flex-col space-y-4">
+                        <!-- FIX: Added type="button" -->
+                        <button id="next-song-btn" type="button" class="control-button bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition duration-150 ease-in-out shadow-md">
+                            <span class="flex items-center justify-center">
+                                Next Song <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Next Song
+                            </span>
+                        </button>
+                        <!-- FIX: Added type="button" -->
+                        <button id="prev-song-btn" type="button" class="control-button bg-yellow-500 text-dark-gray font-bold py-3 px-4 rounded-lg hover:bg-yellow-600 transition duration-150 ease-in-out shadow-md">
+                            <span class="flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 15l-3-3m0 0l3-3m-3 3h8m-11 0a9 9 0 1118 0 9 9 0 01-18 0z"></path></svg>
+                                Previous Song
+                            </span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Remove Button -->
+                <div class="mt-8 pt-4 border-t border-gray-200">
+                    <p class="text-sm text-gray-600 mb-2">Click any song to select it, then use the remove button.</p>
+                    <!-- FIX: Added type="button" -->
+                    <button id="remove-song-btn" type="button" class="control-button bg-red-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-600 transition duration-150 ease-in-out w-full shadow-md" disabled>
+                        <span class="flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Remove Selected Song
+                        </span>
+                    </button>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Custom Alert Modal -->
+        <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
+                <h3 class="text-xl font-bold mb-4 text-primary-blue">Action Required</h3>
+                <p id="modal-message" class="text-gray-700 mb-6"></p>
+                <div class="flex justify-end space-x-3">
+                    <!-- FIX: Added type="button" -->
+                    <button id="modal-cancel-btn" type="button" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 text-gray-800 font-semibold">Cancel</button>
+                    <!-- FIX: Added type="button" -->
+                    <button id="modal-confirm-btn" type="button" class="px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 text-white font-semibold">Confirm Delete</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, query, orderBy, onSnapshot, setDoc, addDoc, deleteDoc, runTransaction, getDocs, getDoc, where, updateDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ====================================================================
+        // START: MANUAL FIREBASE CONFIGURATION (For local testing)
+        // ====================================================================
+        
+        // **IMPORTANT:** This dummy object forces the app into Local Simulation Mode, 
+        // avoiding Firebase connection errors when running in VS Code.
+        const MANUAL_FIREBASE_CONFIG = { projectId: 'local-simulation-only' }; 
+
+        // ====================================================================
+        // END: MANUAL FIREBASE CONFIGURATION
+        // ====================================================================
+
+        // Global variables initialized based on environment or manual config.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = MANUAL_FIREBASE_CONFIG || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Flag to check if we are using a real Firebase config
+        const IS_REAL_FIREBASE = firebaseConfig && firebaseConfig.projectId && firebaseConfig.projectId !== 'dummy' && firebaseConfig.projectId !== 'undefined' && firebaseConfig.projectId !== 'local-simulation-only';
+
+        // --- CORE APPLICATION STATE ---
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+        let playlist = []; // Array to hold sorted song objects (represents the list)
+        let currentSongId = null;
+        let lastSongOrder = 0;
+        let selectedSongId = null; // Fixes the ReferenceError issue
+        
+
+        // Utility function for exponential backoff on Firestore writes
+        const MAX_RETRIES = 5;
+
+        async function attemptFirestoreWrite(fn) {
+            // If running without a real config, prevent writing to Firestore
+            if (!IS_REAL_FIREBASE) {
+                console.log("Skipping Firestore write/read because no valid Firebase config was provided.");
+                return;
+            }
+
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                try {
+                    return await fn();
+                } catch (error) {
+                    if (error.code === 'unavailable' || error.code === 'resource-exhausted') {
+                        const delay = Math.pow(2, i) * 1000;
+                        console.warn(`Firestore write failed, retrying in ${delay / 1000}s...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        console.error("Firestore operation failed permanently:", error);
+                        throw error;
+                    }
+                }
+            }
+            throw new Error("Firestore operation failed after maximum retries.");
+        }
+
+
+        // --- UI Elements ---
+        const statusMessageEl = document.getElementById('status-message');
+        const userIdDisplayEl = document.getElementById('user-id-display');
+        const playlistListEl = document.getElementById('playlist-list');
+        const nowPlayingDisplayEl = document.getElementById('now-playing-display');
+        const songTitleInput = document.getElementById('song-title-input');
+        const artistInput = document.getElementById('artist-input');
+        const addSongBtn = document.getElementById('add-song-btn');
+        const nextSongBtn = document.getElementById('next-song-btn');
+        const prevSongBtn = document.getElementById('prev-song-btn');
+        const removeSongBtn = document.getElementById('remove-song-btn');
+        
+        // Modal elements
+        const customModal = document.getElementById('custom-modal');
+        const modalMessage = document.getElementById('modal-message');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+
+        // --- APP INITIALIZATION ---
+
+        if (IS_REAL_FIREBASE) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Set debug logging for Firestore
+                setLogLevel('Debug');
+                statusMessageEl.textContent = "Authenticating...";
+
+                // Handle authentication
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        userIdDisplayEl.textContent = userId;
+                        statusMessageEl.textContent = "Connected (Realtime Sync)";
+                        
+                        // Start listening for playlist changes
+                        setupPlaylistListener();
+
+                        // Fetch the current 'Now Playing' ID (which is collaborative)
+                        await fetchCurrentSong();
+
+                    } else {
+                        // Sign in if token is available, otherwise sign in anonymously
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            // This is the common fallback for local testing if no token is set
+                            await signInAnonymously(auth);
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                statusMessageEl.textContent = "Error: Firebase connection failed.";
+            }
+        } else {
+            // Run the local simulator if no real config is found
+            statusMessageEl.textContent = "Running in Local Simulation Mode (No Persistence)";
+            setupLocalSimulator();
+        }
+
+
+        // --- LOCAL SIMULATOR (Used when IS_REAL_FIREBASE is false) ---
+
+        function setupLocalSimulator() {
+            userId = 'LOCAL_TEST_USER';
+            isAuthReady = true;
+            userIdDisplayEl.textContent = userId;
+
+            const initialSong = { 
+                id: 'local-song-1', 
+                title: 'Bohemian Rhapsody', 
+                artist: 'Queen', 
+                order: 1, 
+                addedBy: 'LOCAL_TEST_USER',
+                createdAt: new Date().getTime()
+            };
+            const secondSong = { 
+                id: 'local-song-2', 
+                title: 'Stairway to Heaven', 
+                artist: 'Led Zeppelin', 
+                order: 2, 
+                addedBy: 'LOCAL_TEST_USER',
+                createdAt: new Date().getTime()
+            };
+
+
+            playlist = [initialSong, secondSong];
+            currentSongId = initialSong.id;
+            lastSongOrder = 2;
+
+            renderPlaylist();
+
+            // Overwrite functions with local simulation versions
+            window.setCurrentSong = (songId) => { 
+                currentSongId = songId;
+                renderPlaylist();
+            };
+
+            window.addSongToFirestore = () => {
+                const title = songTitleInput.value.trim();
+                const artist = artistInput.value.trim();
+
+                if (!title || !artist) {
+                    showCustomModal("Please enter both a song title and an artist.", () => {}, true); 
+                    return;
+                }
+
+                const newOrder = lastSongOrder + 1;
+                const newSong = {
+                    id: `local-song-${newOrder}`,
+                    title: title,
+                    artist: artist,
+                    order: newOrder,
+                    addedBy: userId,
+                    createdAt: new Date().getTime()
+                };
+
+                playlist.push(newSong);
+                lastSongOrder = newOrder;
+
+                if (playlist.length === 1) {
+                    currentSongId = newSong.id;
+                }
+
+                songTitleInput.value = '';
+                artistInput.value = '';
+                renderPlaylist();
+            };
+
+            window.removeSongFromFirestore = (songId) => {
+                const index = playlist.findIndex(s => s.id === songId);
+                if (index > -1) {
+                    playlist.splice(index, 1);
+                    if (currentSongId === songId) {
+                        // Move current song to the next song, or the first if no next
+                        const nextSongIndex = index < playlist.length ? index : 0;
+                        currentSongId = playlist.length > 0 ? playlist[nextSongIndex].id : null;
+                    }
+                }
+                setSelectedSong(null);
+                renderPlaylist();
+            };
+        }
+
+
+        // --- FIRESTORE OPERATIONS (Used only if IS_REAL_FIREBASE is true) ---
+
+        const getPlaylistCollection = () => collection(db, `artifacts/${appId}/public/data/playlist`);
+        const getCurrentSongDoc = () => doc(db, `artifacts/${appId}/public/data/currentSong`, 'status');
+
+        async function fetchCurrentSong() {
+            if (!isAuthReady || !IS_REAL_FIREBASE) return;
+            try {
+                const docSnap = await getDoc(getCurrentSongDoc());
+                if (docSnap.exists()) {
+                    currentSongId = docSnap.data().currentSongId || null;
+                    renderPlaylist();
+                } else {
+                    await attemptFirestoreWrite(() => setDoc(getCurrentSongDoc(), { currentSongId: null }));
+                }
+            } catch (error) {
+                console.error("Error fetching current song status:", error);
+            }
+        }
+
+        async function setCurrentSong(songId) {
+            currentSongId = songId;
+            renderPlaylist();
+            if (IS_REAL_FIREBASE) {
+                await attemptFirestoreWrite(() => updateDoc(getCurrentSongDoc(), { currentSongId: songId }));
+            } else {
+                // If in simulator mode, update local state
+                window.setCurrentSong(songId); 
+            }
+        }
+
+        async function addSongToFirestore() {
+            if (!isAuthReady) return;
+            
+            // Route to local simulator if necessary
+            if (!IS_REAL_FIREBASE) {
+                window.addSongToFirestore();
+                return;
+            }
+            
+            const title = songTitleInput.value.trim();
+            const artist = artistInput.value.trim();
+
+            if (!title || !artist) {
+                showCustomModal("Please enter both a song title and an artist.", () => {}, true); 
+                return;
+            }
+
+            addSongBtn.disabled = true;
+
+            try {
+                const newOrder = lastSongOrder + 1;
+
+                const newSong = {
+                    title: title,
+                    artist: artist,
+                    order: newOrder,
+                    addedBy: userId,
+                    createdAt: new Date().getTime()
+                };
+
+                const docRef = await attemptFirestoreWrite(() => addDoc(getPlaylistCollection(), newSong));
+                
+                if (playlist.length === 0) {
+                     await setCurrentSong(docRef.id);
+                }
+
+                songTitleInput.value = '';
+                artistInput.value = '';
+            } catch (e) {
+                console.error("Error adding document: ", e);
+            } finally {
+                addSongBtn.disabled = false;
+            }
+        }
+
+        async function removeSongFromFirestore(songId) {
+            if (!isAuthReady) return;
+            
+            // Route to local simulator if necessary
+            if (!IS_REAL_FIREBASE) {
+                window.removeSongFromFirestore(songId);
+                return;
+            }
+
+            try {
+                await attemptFirestoreWrite(() => deleteDoc(doc(db, getPlaylistCollection().id, songId)));
+
+                if (currentSongId === songId) {
+                    // Try to move to the next song, or the first if deleted song was the last
+                    const index = playlist.findIndex(s => s.id === songId);
+                    
+                    let nextSongId = null;
+                    if (playlist.length > 1) {
+                         // Find the song that takes its place (if it's not the end of the list, keep the index)
+                        const nextSongIndex = index < playlist.length - 1 ? index + 1 : 0;
+                        nextSongId = playlist[nextSongIndex].id;
+                    }
+
+                    await setCurrentSong(nextSongId);
+                }
+                
+                setSelectedSong(null);
+
+            } catch (e) {
+                console.error("Error removing document: ", e);
+            }
+        }
+
+        // --- PLAYLIST LOGIC AND RENDERER ---
+
+        function setupPlaylistListener() {
+            if (!isAuthReady || !IS_REAL_FIREBASE) return;
+
+            const q = query(getPlaylistCollection(), orderBy("order", "asc"));
+
+            onSnapshot(q, (snapshot) => {
+                const newPlaylist = [];
+                let maxOrder = 0;
+                
+                snapshot.forEach((doc) => {
+                    const song = { id: doc.id, ...doc.data() };
+                    newPlaylist.push(song);
+                    if (song.order > maxOrder) {
+                        maxOrder = song.order;
+                    }
+                });
+
+                playlist = newPlaylist;
+                lastSongOrder = maxOrder;
+                
+                if (currentSongId && !playlist.some(s => s.id === currentSongId)) {
+                    currentSongId = playlist.length > 0 ? playlist[0].id : null;
+                } else if (!currentSongId && playlist.length > 0) {
+                     currentSongId = playlist[0].id;
+                } else if (playlist.length === 0) {
+                    currentSongId = null;
+                }
+                
+                renderPlaylist();
+            });
+
+            onSnapshot(getCurrentSongDoc(), (docSnap) => {
+                if (docSnap.exists()) {
+                    const newCurrentId = docSnap.data().currentSongId || null;
+                    if (newCurrentId !== currentSongId) {
+                        currentSongId = newCurrentId;
+                        renderPlaylist();
+                    }
+                }
+            });
+        }
+        
+        function setSelectedSong(songId) {
+            selectedSongId = songId;
+            removeSongBtn.disabled = !songId;
+            renderPlaylist();
+        }
+
+        function renderPlaylist() {
+            playlistListEl.innerHTML = '';
+
+            if (playlist.length === 0) {
+                playlistListEl.innerHTML = '<p class="text-gray-500 p-4 text-center">The playlist is empty. Start jamming!</p>';
+                nowPlayingDisplayEl.textContent = "-- Nothing Selected --";
+                return;
+            }
+
+            let currentSongTitle = "-- Not Found --";
+            
+            playlist.forEach((song) => {
+                const isCurrent = song.id === currentSongId;
+                const isSelected = song.id === selectedSongId;
+                
+                if (isCurrent) {
+                    currentSongTitle = `${song.title} by ${song.artist}`;
+                }
+
+                const item = document.createElement('div');
+                item.className = `song-item p-3 rounded-lg flex items-center justify-between text-gray-800 ${isCurrent ? 'current-song' : isSelected ? 'bg-gray-200' : 'hover:bg-gray-100'}`;
+                item.setAttribute('data-song-id', song.id);
+                
+                item.innerHTML = `
+                    <div>
+                        <p class="text-sm font-semibold">${song.title}</p>
+                        <p class="text-xs text-gray-500">${song.artist}</p>
+                    </div>
+                    ${isCurrent ? '<span class="text-primary-blue text-xs font-bold px-2 py-1 bg-blue-100 rounded-full">PLAYING</span>' : ''}
+                `;
+
+                item.addEventListener('click', () => {
+                    setSelectedSong(song.id);
+                });
+
+                playlistListEl.appendChild(item);
+            });
+            
+            nowPlayingDisplayEl.textContent = currentSongTitle;
+        }
+
+        // --- PLAYLIST CONTROL HANDLERS (Simulating Doubly Linked List Traversal) ---
+
+        function handleNextSong() {
+            if (playlist.length === 0) return;
+
+            const currentIndex = playlist.findIndex(song => song.id === currentSongId);
+            
+            const nextIndex = (currentIndex >= 0 && currentIndex < playlist.length - 1) 
+                                ? currentIndex + 1 
+                                : 0; 
+
+            if (playlist.length === 1 && currentIndex === 0) {
+                console.log("Only one song in the playlist, staying put.");
+                return;
+            }
+
+            if (playlist[nextIndex]) {
+                setCurrentSong(playlist[nextIndex].id);
+            }
+        }
+
+        function handlePreviousSong() {
+            if (playlist.length === 0) return;
+
+            const currentIndex = playlist.findIndex(song => song.id === currentSongId);
+            
+            const prevIndex = currentIndex > 0 
+                                ? currentIndex - 1 
+                                : playlist.length - 1; 
+            
+            if (playlist.length === 1 && currentIndex === 0) {
+                console.log("Only one song in the playlist, staying put.");
+                return;
+            }
+            
+            if (playlist[prevIndex]) {
+                setCurrentSong(playlist[prevIndex].id);
+            }
+        }
+
+        function showCustomModal(message, onConfirm, isAlert = false) {
+            modalMessage.textContent = message;
+            customModal.classList.remove('hidden');
+            customModal.classList.add('flex');
+
+            if (isAlert) {
+                modalCancelBtn.classList.add('hidden');
+                modalConfirmBtn.textContent = 'OK';
+                modalConfirmBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                modalConfirmBtn.classList.add('bg-primary-blue', 'hover:bg-blue-700');
+            } else {
+                modalCancelBtn.classList.remove('hidden');
+                modalConfirmBtn.textContent = 'Confirm Delete';
+                modalConfirmBtn.classList.remove('bg-primary-blue', 'hover:bg-blue-700');
+                modalConfirmBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+            }
+
+            const confirmHandler = () => {
+                onConfirm();
+                closeCustomModal();
+            };
+
+            const cancelHandler = () => {
+                closeCustomModal();
+            };
+
+            modalConfirmBtn.onclick = confirmHandler;
+            modalCancelBtn.onclick = cancelHandler;
+        }
+
+        function closeCustomModal() {
+            customModal.classList.add('hidden');
+            customModal.classList.remove('flex');
+            modalConfirmBtn.onclick = null;
+            modalCancelBtn.onclick = null;
+        }
+
+        // --- EVENT LISTENERS (Bind to general functions) ---
+
+        document.getElementById('add-song-btn').addEventListener('click', addSongToFirestore);
+        
+        songTitleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') addSongToFirestore();
+        });
+
+        artistInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') addSongToFirestore();
+        });
+
+        nextSongBtn.addEventListener('click', handleNextSong);
+        prevSongBtn.addEventListener('click', handlePreviousSong);
+
+        document.getElementById('remove-song-btn').addEventListener('click', () => {
+            if (selectedSongId) {
+                const songToRemove = playlist.find(s => s.id === selectedSongId);
+                
+                if (songToRemove) {
+                    showCustomModal(
+                        `Are you sure you want to remove '${songToRemove.title}' by ${songToRemove.artist} from the playlist?`,
+                        () => removeSongFromFirestore(selectedSongId)
+                    );
+                }
+            } else {
+                showCustomModal(
+                    "Please click on a song in the list to select it before attempting to remove it.",
+                    () => {}, true 
+                );
+            }
+        });
+        
+        // Initial render when script loads
+        renderPlaylist();
+
+    </script>
+</body>
+</html>
